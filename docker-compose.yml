@@ -8,16 +8,27 @@ services:
       - "8000:8000"
     depends_on:
       - postgresdb
+    networks:
+      - xDRBasedNetwork
 
   postgresdb:
-    image: postgres
-    container_name: 
+    image: postgres:latest
+    container_name: xDRBasedProjectDB
     environment:
-      POSTGRES_PASSWORD: pFi1DrWSaKURVQ2c4Zeu502q  
+      POSTGRES_DB: xdrDb
       POSTGRES_USER: admin
-      POSTGRES_DB: xDR 
+      POSTGRES_PASSWORD: admin
     ports:
-      - "5432:5432"
+      - "5433:5432"
+    networks:
+      - xDRBasedNetwork
     volumes:
-      - ./postgres-data:/var/lib/postgresql/data
- 
+      - pg-data:/var/lib/postgresql/data
+
+
+networks:
+  xDRBasedNetwork:
+    name: xDRBasedNetwork
+
+volumes:
+  pg-data:
