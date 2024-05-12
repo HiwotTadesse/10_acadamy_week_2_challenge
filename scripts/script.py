@@ -68,3 +68,61 @@ bivariate_analysis.to_csv('bivariate_analysis.csv')
 decile_data.to_csv('decile_data.csv')
 correlation_matrix.to_csv('correlation_matrix.csv')
 telecom_data_with_pca.to_csv('telecom_data_with_pca.csv')
+
+
+import pandas as pd
+from sklearn.metrics import euclidean_distances
+from sklearn.cluster import KMeans
+
+
+agg_data = pd.read_csv('telecom_data_with_pca.csv')  
+cluster_descriptions = {0: "Low Engagement & Experience", 1: "High Engagement & Experience", 2: "Moderate Engagement & Experience"}  
+
+less_engaged_cluster = 0
+worst_experience_cluster = 0
+
+engagement_scores = euclidean_distances(agg_data[['TCP DL Retrans. Vol (Bytes)', 'Avg RTT DL (ms)', 'Avg Bearer TP DL (kbps)']], KMeans.cluster_centers_[less_engaged_cluster].reshape(1, -1))
+experience_scores = euclidean_distances(agg_data[['TCP DL Retrans. Vol (Bytes)', 'RTT', 'Avg Bearer TP DL (kbps)']], KMeans.cluster_centers_[worst_experience_cluster].reshape(1, -1))
+
+satisfaction_scores = (engagement_scores + experience_scores) / 2
+
+from sklearn.linear_model import LinearRegression
+
+X = agg_data[['TCP_retransmission', 'RTT', 'Throughput']]
+y = satisfaction_scores.reshape(-1, 1)
+
+regression_model = LinearRegression()
+regression_model.fit(X, y)
+
+from sklearn.cluster import KMeans
+
+satisfaction_scores_df = pd.DataFrame(satisfaction_scores, columns=['Satisfaction Score'])
+kmeans = KMeans(n_clusters=2, random_state=42)
+satisfaction_clusters = kmeans.fit_predict(satisfaction_scores_df)
+
+clustered_data = agg_data.copy()
+clustered_data['Satisfaction Cluster'] = satisfaction_clusters
+avg_scores_per_cluster = clustered_data.groupby('Satisfaction Cluster').mean()
+
+import mysql.connector
+
+conn = mysql.connector.connect(host="localhost", user="admin", password="admin", database="aggregatedData")  
+
+clustered_data.to_sql('satisfaction_scores', con=conn, if_exists='replace', index=False)
+
+import datetime
+
+model_info = {
+    'code_version': 'v1.0',
+    'start_time': datetime.datetime.now(),
+    'end_time': None,
+    'source': 'Linear Regression',
+    'parameters': regression_model.get_params(),
+    'metrics': regression_model.score(X, y),
+    'artifacts': None  
+}
+
+model_info['end_time'] = datetime.datetime.now()
+
+model_info_df = pd.DataFrame.from_dict(model_info, orient='index').T
+model_info_df.to_csv('model_info.csv', index=False)
